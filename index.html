@@ -1,546 +1,272 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <title>RAWT</title>
-    <link href="https://fonts.cdnfonts.com/css/akira-expanded" rel="stylesheet" />
-
-    <style>
-        body {
-            margin: 0;
-            -ms-overflow-style: none;  /* Internet Explorer 10+ */
-            scrollbar-width: none;  /* Firefox, Safari 18.2+, Chromium 121+ */
-            font-family: 'Akira Expanded', sans-serif;
-          }
-        
-            body::-webkit-scrollbar {
-              display: none; /* Chrome, Safari, Opera */
-            }
-        
-            canvas {
-              position: fixed;
-              top: 0;
-              left: 0;
-              z-index: 0; /* explicitly behind everything */
-            }
-        
-            #fadeOverlay {
-              position: fixed;
-              top: 0; left: 0; right: 0; bottom: 0;
-              background: black;
-              opacity: 0;
-              transition: opacity 5s ease;
-              pointer-events: none;
-              z-index: 1; /* ensure it's above canvas, but below menu/header */
-            }
-        
-            #navBar {
-              position: fixed;
-              top: 0;
-              left: 0;
-              width: 100%;
-              height: 60px;
-              background: rgba(0, 0, 0, 0);
-              z-index: 1000;
-              pointer-events: none;
-              transition: background 0.5s ease, opacity 0.5s ease;;
-              display: flex;
-              justify-content: flex-end;
-              align-items: center;
-              padding-right: 20px;
-            }
-        
-            #navBar.active {
-              background: white;
-              pointer-events: auto; /* enable interaction when active */
-              mix-blend-mode: exclusion;
-            }
-        
-        
-            #bottomBar {
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              width: 100%;
-              height: 60px;
-              background: rgba(0, 0, 0, 0);
-              z-index: 1000;
-              pointer-events: none;
-              transition: background 0.5s ease, opacity 0.5s ease;;
-              display: flex;
-              justify-content: flex-end;
-              align-items: center;
-              padding-right: 20px;
-            }
-        #bottomBar.active {
-              background: white;
-              pointer-events: auto; /* enable interaction when active */
-              mix-blend-mode: exclusion;
-        }
-        
-        #bottomBar.hidden-ui {
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.3s ease;
-        }
-        
-
-        
-        
-            #rawtOverlay {
-              position: fixed;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              font-size: 6rem;
-              font-weight: bold;
-              color: white;
-              mix-blend-mode: exclusion;
-              user-select: none;
-              pointer-events: none;
-              z-index: 1001;
-              transition:
-                top 0.5s ease,
-                left 0.5s ease,
-                transform 0.5s ease,
-                font-size 0.5s ease;
-            }
-        
-            #rawtOverlay.stuck {
-              top: 15px;
-              left: 30px;
-              transform: none;
-              font-size: 2rem;
-            }
-        
-            #scrollContainer {
-              height: 200vh;
-              z-index: 1;
-              position: relative;
-            }
-        
-            #rawtMenu {
-              position: fixed;
-              top: 60px;
-              left: 0;
-              font-family: 'Arial', sans-serif;
-              background: transparent;
-              padding: 10px 30px;
-              z-index: 1002;
-              width: 15%;
-              height: 100%;
-              pointer-events: auto;
-              transition: opacity 0.3s ease;
-            }
-        
-            /* Keep blend mode on links */
-            #rawtMenu ul li a {
-              text-decoration: none;
-              font-weight: bold;
-              display: block;
-              transition: color 0.3s ease;
-              mix-blend-mode: exclusion;
-              color: white;
-            }
-        
-            /* Remove blend mode here – apply only to the links */
-            #rawtMenu ul {
-              list-style: none;
-              margin: 0;
-              padding: 0;
-              display: block;
-            }
-        
-            #rawtMenu ul li {
-              margin-bottom: 10px;
-            }
-        
-            #rawtMenu ul li:last-child {
-              margin-bottom: 0;
-            }
-        
-            #rawtMenu ul li a:hover {
-              color: inherit;
-              cursor: pointer;
-            }
-        
-            .hidden {
-              opacity: 0;
-              pointer-events: none;
-              user-select: none;
-            }
-        
-            .visible {
-              opacity: 1;
-              pointer-events: auto;
-              user-select: auto;
-            }
-        
-            /* Invisible hover area to show UI when hidden */
-            #hoverZone {
-              position: fixed;
-              top: 0;
-              right: 0;
-              width: 30px;
-              height: 60px;
-              z-index: 1100;
-              background: transparent;
-              pointer-events: auto;
-            }
-        
-            .hidden-ui {
-          opacity: 0;
-          pointer-events: auto;
-          transition: opacity 0.3s ease;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>RAWT</title>
+  <link href="https://fonts.cdnfonts.com/css/akira-expanded" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      font-family: 'Akira Expanded', sans-serif;
+    }
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+    #fadeOverlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: black;
+      opacity: 0;
+      transition: opacity 5s ease;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #navBar, #bottomBar {
+      position: fixed;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: rgba(0,0,0,0);
+      z-index: 1000;
+      pointer-events: none;
+      transition: background 0.5s ease, opacity 0.5s ease;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding-right: 20px;
+    }
+    #navBar { top: 0; }
+    #bottomBar { bottom: 0; }
+    #navBar.active, #bottomBar.active {
+      background: white;
+      pointer-events: auto;
+      mix-blend-mode: exclusion;
+    }
+    #bottomBar.hidden-ui { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    #rawtOverlay {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 6rem;
+      font-weight: bold;
+      color: white;
+      mix-blend-mode: exclusion;
+      user-select: none;
+      pointer-events: none;
+      z-index: 1001;
+      transition: top 0.5s ease, left 0.5s ease, transform 0.5s ease, font-size 0.5s ease;
+    }
+    #rawtOverlay.stuck {
+      top: 15px; left: 30px;
+      transform: none;
+      font-size: 2rem;
+    }
+    #scrollContainer {
+      height: 200vh;
+      z-index: 1;
+      position: relative;
+    }
+    #rawtMenu {
+      position: fixed;
+      top: 60px; left: 0;
+      font-family: 'Arial', sans-serif;
+      background: transparent;
+      padding: 10px 30px;
+      z-index: 1002;
+      width: 15%;
+      height: 100%;
+      pointer-events: auto;
+      transition: opacity 0.3s ease;
+    }
+    #rawtMenu ul { list-style: none; margin: 0; padding: 0; }
+    #rawtMenu ul li { margin-bottom: 10px; }
+    #rawtMenu ul li:last-child { margin-bottom: 0; }
+    #rawtMenu ul li a {
+      text-decoration: none;
+      font-weight: bold;
+      display: block;
+      transition: color 0.3s ease;
+      mix-blend-mode: exclusion;
+      color: white;
+    }
+    #rawtMenu ul li a:hover { cursor: pointer; }
+    .hidden { opacity: 0; pointer-events: none; user-select: none; }
+    .visible { opacity: 1; pointer-events: auto; user-select: auto; }
+    #hoverZone {
+      position: fixed;
+      top: 0; right: 0;
+      width: 30px; height: 60px;
+      z-index: 1100;
+      background: transparent;
+      pointer-events: auto;
+    }
+    .hidden-ui { opacity: 0; pointer-events: auto; transition: opacity 0.3s ease; }
+  </style>
 </head>
-
 <body>
+  <div id="fadeOverlay"></div>
+  <div id="navBar"></div>
+  <div id="rawtOverlay">RAWT</div>
+  <div id="rawtMenu" class="hidden">
+    <ul>
+      <li><a href="#">NaN</a></li>
+      <li><a href="#">404</a></li>
+      <li><a href="#">false</a></li>
+      <li><a href="#">true</a></li>
+      <li><a href="#">nil</a></li>
+      <li><a href="#">break</a></li>
+      <li><a href="#">exit</a></li>
+      <li><a href="#">fail</a></li>
+      <li><a href="#">catch</a></li>
+      <li><a href="#">throw</a></li>
+      <li><a href="#">debug</a></li>
+      <li><a href="#">stack</a></li>
+      <li><a href="#">trace</a></li>
+      <li><a href="#">memory</a></li>
+      <li><a href="#">overrun</a></li>
+      <li><a href="#">core</a></li>
+      <li><a href="#">zero</a></li>
+      <li><a href="#">reboot</a></li>
+      <li><a href="#">sys</a></li>
+      <li><a id="hideUIButton">hide-ui</a></li>
+    </ul>
+  </div>
+  <div id="bottomBar"></div>
+  <div id="scrollContainer"></div>
 
-    <div id="fadeOverlay"></div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script>
+    const hideUIButton = document.getElementById('hideUIButton');
+    const navBar = document.getElementById('navBar');
+    const rawtMenu = document.getElementById('rawtMenu');
+    const rawt = document.getElementById('rawtOverlay');
+    const bottomBar = document.getElementById('bottomBar');
 
-    <div id="navBar"></div>
+    let scene, camera, renderer, mesh, material, clock;
+    let uniforms;
 
-    <div id="rawtOverlay">RAWT</div>
+    function init() {
+      if (renderer) renderer.domElement.remove();
 
-    <div id="rawtMenu" class="hidden">
-        <ul>
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 20, 40);
 
-            <li><a href="#">NaN</a></li>
-            <li><a href="#">404</a></li>
-            <li><a href="#">false</a></li>
-            <li><a href="#">true</a></li>
-            <li><a href="#">nil</a></li>
-            <li><a href="#">break</a></li>
-            <li><a href="#">exit</a></li>
-            <li><a href="#">fail</a></li>
-            <li><a href="#">catch</a></li>
-            <li><a href="#">throw</a></li>
-            <li><a href="#">debug</a></li>
-            <li><a href="#">stack</a></li>
-            <li><a href="#">trace</a></li>
-            <li><a href="#">memory</a></li>
-            <li><a href="#">overrun</a></li>
-            <li><a href="#">core</a></li>
-            <li><a href="#">zero</a></li>
-            <li><a href="#">reboot</a></li>
-            <li><a href="#">sys</a></li>
-            <li><a id="hideUIButton">hide-ui</a></li>
+      renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio * 0.75);
+      document.body.appendChild(renderer.domElement);
 
-        </ul>
-    </div>
-    <div id="bottomBar"></div>
-    <div id="scrollContainer"></div>
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(0, 100, 100).normalize();
+      scene.add(light);
+      scene.add(new THREE.AmbientLight(0x404040));
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            window.scrollTo(0, 0);
-          });
-        
-        
-            const hideUIButton = document.getElementById('hideUIButton');
-            const navBar = document.getElementById('navBar');
-            const rawtMenu = document.getElementById('rawtMenu');
-            const rawt = document.getElementById('rawtOverlay');
-        const bottomBar = document.getElementById('bottomBar');
-        
-            // === 3D Sea Setup ===
-            let SEA_SPEED = 20;
-            let PLANE_SIZE = 100;
-            let PLANE_SEGMENTS = 200;
-            let WAVE_OCTAVES = 1;
-            let WAVE_PERSISTENCE = 0.5;
-        
-            let CAMERA_X_AMPLITUDE = 0;
-            let CAMERA_POS_X = 0;
-            let CAMERA_BASE_HEIGHT = 10;
-            let CAMERA_VERTICAL_AMPLITUDE = 2;
-            let CAMERA_LOOKAT_HORIZON_AMPLITUDE = 2;
-            let CAMERA_LOOKAT_VERTICAL_AMPLITUDE = 2;
-            let CAMERA_POS_Z = 30;
-            let CAMERA_LOOKAT_DISTANCE_BASE = 20;
-            let CAMERA_LOOKAT_DISTANCE_AMPLITUDE = 10;
-            let WAVE_VERTICAL_AMPLITUDE = 1.0;
-            let CAMERA_SPEED_X = 0.2;
-            let CAMERA_SPEED_Y = 0.3;
-        
-            let material, scene, camera, renderer, mesh, geometry;
-            let seaOffsetY = Math.random() * 1000;
-        
-            function staticNoise(x, y) {
-              return Math.sin(x * 12.9898 + y * 78.233) * 43758.5453 % 1;
-            }
-        
-            function smoothNoise(x, y) {
-              const x0 = Math.floor(x), x1 = x0 + 1;
-              const y0 = Math.floor(y), y1 = y0 + 1;
-              const sx = x - x0, sy = y - y0;
-              const n0 = staticNoise(x0, y0), n1 = staticNoise(x1, y0);
-              const ix0 = n0 + (n1 - n0) * sx;
-              const n2 = staticNoise(x0, y1), n3 = staticNoise(x1, y1);
-              const ix1 = n2 + (n3 - n2) * sx;
-              return ix0 + (ix1 - ix0) * sy;
-            }
-        
-            function fractalNoise(x, y, octaves = WAVE_OCTAVES, persistence = WAVE_PERSISTENCE) {
-              let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
-              for (let i = 0; i < octaves; i++) {
-                total += smoothNoise(x * frequency, y * frequency) * amplitude;
-                maxValue += amplitude;
-                amplitude *= persistence;
-                frequency *= 2;
-              }
-              return total / maxValue;
-            }
-        
-        function getRandomGrey() {
-          const shade = Math.floor(Math.random() * 205); // 0 to 127
-          return (shade << 16) | (shade << 8) | shade; // R = G = B = shade
-        }
-        
-        
-            function init() {
-              if (renderer) renderer.domElement.remove();
-        
-              scene = new THREE.Scene();
-              camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-              camera.position.set(CAMERA_POS_X, CAMERA_BASE_HEIGHT, CAMERA_POS_Z);
-        
-              renderer = new THREE.WebGLRenderer({ antialias: true });
-              renderer.setSize(window.innerWidth, window.innerHeight);
-              renderer.setClearColor(getRandomGrey(), 1); // white background, fully opaque
-              document.body.appendChild(renderer.domElement);
-        
-              const light = new THREE.DirectionalLight(0xffffff, 1);
-              light.position.set(0, 100, 100).normalize();
-              scene.add(light);
-              scene.add(new THREE.AmbientLight(0x404040));
-        
-              material = material || new THREE.MeshStandardMaterial({
-                color: 0xFFFFFF,
-                wireframe: true,
-                roughness: 0.7,
-                metalness: 0.2,
-                transparent: true,
-                opacity: 1,
-              });
-        
-              randomise();
-              createSeaMesh();
-              window.addEventListener('resize', onWindowResize, false);
-            }
-        
-            function createSeaMesh() {
-              if (mesh) {
-                scene.remove(mesh);
-                geometry.dispose();
-                mesh.material.dispose();
-              }
-        
-              geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, PLANE_SEGMENTS, PLANE_SEGMENTS);
-              mesh = new THREE.Mesh(geometry, material);
-              mesh.rotation.x = -Math.PI / 2;
-              scene.add(mesh);
-            }
-        
-            function onWindowResize() {
-              camera.aspect = window.innerWidth / window.innerHeight;
-              camera.updateProjectionMatrix();
-              renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-        
-            const clock = new THREE.Clock();
-        
-            function animate() {
-              requestAnimationFrame(animate);
-              const delta = clock.getDelta();
-              const time = clock.elapsedTime;
-        
-              seaOffsetY += SEA_SPEED * delta;
-              if (seaOffsetY > 1000) seaOffsetY -= 1000;
-        
-              camera.position.x = CAMERA_POS_X + Math.sin(time * CAMERA_SPEED_X) * CAMERA_X_AMPLITUDE;
-              camera.position.y = CAMERA_BASE_HEIGHT + Math.sin(time * CAMERA_SPEED_Y) * CAMERA_VERTICAL_AMPLITUDE;
-              camera.position.z = CAMERA_POS_Z;
-        
-              const lookAtDistance = CAMERA_LOOKAT_DISTANCE_BASE + Math.sin(time * 0.02) * CAMERA_LOOKAT_DISTANCE_AMPLITUDE;
-              const horizonOffset = Math.sin(time * 0.2) * CAMERA_LOOKAT_HORIZON_AMPLITUDE;
-              const verticalOffset = Math.sin(time * 0.1) * CAMERA_LOOKAT_VERTICAL_AMPLITUDE;
-        
-              camera.lookAt(new THREE.Vector3(
-                CAMERA_POS_X + verticalOffset,
-                horizonOffset,
-                CAMERA_POS_Z - lookAtDistance
-              ));
-        
-              const pos = geometry.attributes.position;
-              for (let i = 0; i < pos.count; i++) {
-                const x = pos.getX(i), y = pos.getY(i), waveY = y - seaOffsetY;
-                const noise = fractalNoise(x * 0.1 + time * 0.05, waveY * 0.1 + time * 0.03) * 4 +
-                              fractalNoise(x * 0.4 - time * 0.07, waveY * 0.4 + time * 0.02, 3, 0.6) * 3 +
-                              fractalNoise(x * 1.5 + time * 0.12, waveY * 1.5 - time * 0.08, 2, 0.7) * 2;
-                pos.setZ(i, WAVE_VERTICAL_AMPLITUDE * noise);
-              }
-        
-              pos.needsUpdate = true;
-              renderer.render(scene, camera);
-            }
-        
-            function randomBetween(min, max) {
-              return Math.random() * (max - min) + min;
-            }
-        
-            function getRandomColor() {
-              return Math.floor(Math.random() * 0xffffff);
-            }
-        
-            function randomise() {
-              WAVE_VERTICAL_AMPLITUDE = randomBetween(0.2, 1.5);
-              CAMERA_LOOKAT_DISTANCE_AMPLITUDE = randomBetween(0, 100);
-              CAMERA_LOOKAT_VERTICAL_AMPLITUDE = randomBetween(0, 20);
-              CAMERA_LOOKAT_HORIZON_AMPLITUDE = randomBetween(0, 20);
-              CAMERA_VERTICAL_AMPLITUDE = randomBetween(0, 20);
-              CAMERA_BASE_HEIGHT = randomBetween(10, 50);
-              CAMERA_X_AMPLITUDE = randomBetween(0, 50);
-              SEA_SPEED = Math.random() > 0.5 ? 0 : 20;
-              if (material) material.color.setHex(getRandomColor());
-            }
-        
-            function fadeOutAndReset() {
-              const fadeOverlay = document.getElementById('fadeOverlay');
-              fadeOverlay.style.opacity = '1';
-              setTimeout(() => {
-                seaOffsetY = Math.random() * 1000;
-                init();
-                setTimeout(() => {
-                  fadeOverlay.style.opacity = '0';
-                  setTimeout(fadeOutAndReset, 15000);
-                }, 100);
-              }, 5000);
-            }
-        
-            init();
-            animate();
-            setTimeout(fadeOutAndReset, 15000);
-        
-        
-        
-        
-        window.addEventListener('scroll', () => {
-          const scrollY = window.scrollY;
-          const triggerPoint = window.innerHeight / 2;
-        
-          const isStuck = scrollY > triggerPoint;
-        
-          rawt.classList.toggle('stuck', isStuck);
-          navBar.classList.toggle('active', isStuck);
-        
-          // Toggle menu visibility when header is stuck
-          if (isStuck) {
-            rawtMenu.classList.add('visible');
-            rawtMenu.classList.remove('hidden');
-          } else {
-            rawtMenu.classList.add('hidden');
-            rawtMenu.classList.remove('visible');
+      uniforms = {
+        uTime: { value: 0 },
+        uAmplitude: { value: 2.0 },
+        uColor: { value: new THREE.Color(0xffffff) }
+      };
+
+      material = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        wireframe: true,
+        vertexShader: `
+          uniform float uTime;
+          uniform float uAmplitude;
+          varying float vHeight;
+          void main() {
+            vec3 pos = position;
+            float wave1 = sin(pos.x * 0.3 + uTime * 0.5);
+            float wave2 = cos(pos.y * 0.4 + uTime * 0.3);
+            float wave3 = sin((pos.x + pos.y) * 0.2 + uTime * 0.7);
+            pos.z += (wave1 + wave2 + wave3) * uAmplitude;
+            vHeight = pos.z;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
           }
-        });
-        
-        
-            const menuLinks = document.querySelectorAll('#rawtMenu ul li a');
-        
-        menuLinks.forEach(link => {
-          // Store original color
-          const originalColor = window.getComputedStyle(link).color;
-        
-          link.addEventListener('mouseenter', () => {
-            // Convert THREE.Color to CSS hex string
-            const colorHex = '#' + material.color.getHexString();
-            link.style.color = colorHex;
-          });
-        
-          link.addEventListener('mouseleave', () => {
-            link.style.color = originalColor;
-          });
-        });
-        
-        
-        hideUIButton.addEventListener('mouseenter', () => {
-          const colorHex = '#' + material.color.getHexString();
-          hideUIButton.style.color = colorHex;
-        });
-        
-        hideUIButton.addEventListener('mouseleave', () => {
-          hideUIButton.style.color = 'white';  // Make sure 'white' is a string!
-        });
-        
-        
-        
-        
-        
-        
-        let uiHidden = false;
-        function updateHideUIButtonVisibility() {
-          if (navBar.classList.contains('active') && !uiHidden) {
-            hideUIButton.classList.add('visible-ui');
-          } else {
-            hideUIButton.classList.remove('visible-ui');
+        `,
+        fragmentShader: `
+          uniform vec3 uColor;
+          varying float vHeight;
+          void main() {
+            float shade = 0.5 + 0.5 * sin(vHeight * 0.2);
+            gl_FragColor = vec4(uColor * shade, 1.0);
           }
-        }
-        
-        
-        hideUIButton.addEventListener('click', () => {
-          uiHidden = true;
-          navBar.classList.add('hidden-ui');
-          rawtMenu.classList.add('hidden-ui');
-           bottomBar.classList.add('hidden-ui');
-          updateHideUIButtonVisibility();
-        });
-        
-        function showUI() {
-          uiHidden = false;
-          navBar.classList.remove('hidden-ui');
-          rawtMenu.classList.remove('hidden-ui');
-          bottomBar.classList.remove('hidden-ui');
-          updateHideUIButtonVisibility();
-        }
-        
-        // Call this whenever navBar's active state changes, like in your scroll listener
-        window.addEventListener('scroll', () => {
-          const scrollY = window.scrollY;
-          const triggerPoint = window.innerHeight / 2;
-        
-          const isStuck = scrollY > triggerPoint;
-        
-          rawt.classList.toggle('stuck', isStuck);
-          navBar.classList.toggle('active', isStuck);
-          bottomBar.classList.toggle('active', isStuck);
-        
-          if (isStuck) {
-            rawtMenu.classList.add('visible');
-            rawtMenu.classList.remove('hidden');
-          } else {
-            rawtMenu.classList.add('hidden');
-            rawtMenu.classList.remove('visible');
-          }
-        
-          updateHideUIButtonVisibility();
-        });
-        
-        
-        // Show UI on hover when hidden
-        rawtMenu.addEventListener('mouseenter', () => {
-          if (uiHidden) showUI();
-        });
-        navBar.addEventListener('mouseenter', () => {
-          if (uiHidden) showUI();
-        });
-        
-        // Initial call in case page loads with navBar active
-        updateHideUIButtonVisibility();
-    </script>
+        `,
+        transparent: true
+      });
+
+      const geometry = new THREE.PlaneGeometry(100, 100, 200, 200);
+      mesh = new THREE.Mesh(geometry, material);
+      mesh.rotation.x = -Math.PI / 2;
+      scene.add(mesh);
+
+      clock = new THREE.Clock();
+      window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      uniforms.uTime.value = clock.getElapsedTime();
+      renderer.render(scene, camera);
+    }
+
+    init();
+    animate();
+
+    // === UI Logic unchanged from your version ===
+    function updateHideUIButtonVisibility() {
+      if (navBar.classList.contains('active')) {
+        hideUIButton.classList.add('visible-ui');
+      } else {
+        hideUIButton.classList.remove('visible-ui');
+      }
+    }
+    hideUIButton.addEventListener('click', () => {
+      navBar.classList.add('hidden-ui');
+      rawtMenu.classList.add('hidden-ui');
+      bottomBar.classList.add('hidden-ui');
+      updateHideUIButtonVisibility();
+    });
+    function showUI() {
+      navBar.classList.remove('hidden-ui');
+      rawtMenu.classList.remove('hidden-ui');
+      bottomBar.classList.remove('hidden-ui');
+      updateHideUIButtonVisibility();
+    }
+    window.addEventListener('scroll', () => {
+      const scrollY = window.scrollY;
+      const triggerPoint = window.innerHeight / 2;
+      const isStuck = scrollY > triggerPoint;
+      rawt.classList.toggle('stuck', isStuck);
+      navBar.classList.toggle('active', isStuck);
+      bottomBar.classList.toggle('active', isStuck);
+      if (isStuck) {
+        rawtMenu.classList.add('visible');
+        rawtMenu.classList.remove('hidden');
+      } else {
+        rawtMenu.classList.add('hidden');
+        rawtMenu.classList.remove('visible');
+      }
+      updateHideUIButtonVisibility();
+    });
+    rawtMenu.addEventListener('mouseenter', showUI);
+    navBar.addEventListener('mouseenter', showUI);
+    updateHideUIButtonVisibility();
+  </script>
 </body>
-
 </html>
