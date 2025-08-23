@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RAWT</title>
+  <link href="https://fonts.cdnfonts.com/css/akira-expanded" rel="stylesheet" />
+  <style>
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+#ui {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  border-radius: 10px;
+  z-index: 10;
+  user-select: none;
+  width: 320px;
+  max-height: 90vh;
+  overflow-y: auto;
+  transition: max-height 0.3s ease;
+}
+
+#dropdownToggle {
+  cursor: pointer;
+  padding: 10px 20px;
+  font-weight: bold;
+  text-align: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  user-select: none;
+}
+
+#controlsContent {
+  display: none;
+  padding: 10px 20px 20px 20px;
+}
+
+#ui.open #controlsContent {
+  display: block;
+}
+
+#ui label {
+  display: block;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+#ui input[type="range"],
+#ui input[type="number"] {
+  width: 100%;
+  margin-top: 4px;
+}
+#fadeOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: black;
+  opacity: 0;
+  transition: opacity 5s ease;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+#rawtOverlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 6rem;
+  font-family: 'Akira Expanded', sans-serif;
+  font-weight: bold;
+  color: white; /* base color */
+  mix-blend-mode: exclusion;
+  z-index: 10001; /* Above fade overlay */
+  pointer-events: none;
+  user-select: none;
+  transition: color 5s ease, opacity 5s ease;
+}
+
+  </style>
+</head>
+<body>
+
+<div id="rawtOverlay" data-text="RAWT">RAWT</div>
+<div id="fadeOverlay"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<script>
+  // === Controls & variables ===
+  let SEA_SPEED = 20;
+  let PLANE_SIZE = 100;
+  let PLANE_SEGMENTS = 200;
+  let WAVE_OCTAVES = 1;
+  let WAVE_PERSISTENCE = 0.5;
+
+  let CAMERA_X_AMPLITUDE = 0;
+  let CAMERA_POS_X = 0;
+  let CAMERA_BASE_HEIGHT = 10;
+  let CAMERA_VERTICAL_AMPLITUDE = 2;
+  let CAMERA_LOOKAT_HORIZON_AMPLITUDE = 2;
+  let CAMERA_LOOKAT_VERTICAL_AMPLITUDE = 2;
+  let CAMERA_POS_Z = 30;
+  let CAMERA_LOOKAT_DISTANCE_BASE = 20;
+  let CAMERA_LOOKAT_DISTANCE_AMPLITUDE = 10;
+
+  let WAVE_VERTICAL_AMPLITUDE = 1.0;
+
+  let CAMERA_SPEED_X = 0.2;
+  let CAMERA_SPEED_Y = 0.3;
+
+  let material; // <-- material declared here
+  let scene, camera, renderer, mesh, geometry;
+  let seaOffsetY = Math.random() * 1000;
+
+  // Noise functions unchanged
+  function staticNoise(x, y) {
+    const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  function smoothNoise(x, y) {
+    const x0 = Math.floor(x);
+    const x1 = x0 + 1;
+    const y0 = Math.floor(y);
+    const y1 = y0 + 1;
+    const sx = x - x0;
+    const sy = y - y0;
+    const n0 = staticNoise(x0, y0);
+    const n1 = staticNoise(x1, y0);
+    const ix0 = n0 + (n1 - n0) * sx;
+    const n2 = staticNoise(x0, y1);
+    const n3 = staticNoise(x1, y1);
+    const ix1 = n2 + (n3 - n2) * sx;
+    return ix0 + (ix1 - ix0) * sy;
+  }
+
+  function fractalNoise(x, y, octaves = WAVE_OCTAVES, persistence = WAVE_PERSISTENCE) {
+    let total = 0;
+    let frequency = 1;
+    let amplitude = 1;
+    let maxValue = 0;
+    for (let i = 0; i < octaves; i++) {
+      total += smoothNoise(x * frequency, y * frequency) * amplitude;
+      maxValue += amplitude;
+      amplitude *= persistence;
+      frequency *= 2;
+    }
+    return total / maxValue;
+  }
+
+  // Initialize everything
+  function init() {
+    if (renderer) {
+      renderer.domElement.remove();
+    }
+
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(CAMERA_POS_X, CAMERA_BASE_HEIGHT, CAMERA_POS_Z);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(0, 100, 100).normalize();
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
+
+    // Create material *once* here BEFORE randomising color
+    if (!material) {
+      material = new THREE.MeshStandardMaterial({
+        color: 0xffffff,  // default white color
+        wireframe: true,
+        roughness: 0.7,
+        metalness: 0.2,
+        transparent: true,
+        opacity: 1,
+      });
+    }
+
+    randomise(); // <-- Now material exists, randomise can change its color
+
+    createSeaMesh();
+
+    window.addEventListener('resize', onWindowResize, false);
+  }
+
+  function createSeaMesh() {
+    if (mesh) {
+      scene.remove(mesh);
+      geometry.dispose();
+      mesh.material.dispose();
+    }
+
+    geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, PLANE_SEGMENTS, PLANE_SEGMENTS);
+
+    // Use the existing material with updated color
+    mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = -Math.PI / 2;
+    scene.add(mesh);
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const delta = clock.getDelta();
+    const time = clock.elapsedTime;
+
+    seaOffsetY += SEA_SPEED * delta;
+    if (seaOffsetY > 1000) seaOffsetY -= 1000;
+
+    camera.position.x = CAMERA_POS_X + Math.sin(time * CAMERA_SPEED_X) * CAMERA_X_AMPLITUDE;
+    camera.position.y = CAMERA_BASE_HEIGHT + Math.sin(time * CAMERA_SPEED_Y) * CAMERA_VERTICAL_AMPLITUDE;
+    camera.position.z = CAMERA_POS_Z;
+
+    const lookAtDistance = CAMERA_LOOKAT_DISTANCE_BASE +
+      Math.sin(time * 0.02) * CAMERA_LOOKAT_DISTANCE_AMPLITUDE;
+
+    const horizonOffset = Math.sin(time * 0.2) * CAMERA_LOOKAT_HORIZON_AMPLITUDE;
+    const verticalOffset = Math.sin(time * 0.1) * CAMERA_LOOKAT_VERTICAL_AMPLITUDE;
+
+    camera.lookAt(
+      new THREE.Vector3(
+        CAMERA_POS_X + verticalOffset,
+        horizonOffset,
+        CAMERA_POS_Z - lookAtDistance
+      )
+    );
+
+    const pos = geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const waveBaseY = y - seaOffsetY;
+
+      const noise1 = fractalNoise(x * 0.1 + time * 0.05, waveBaseY * 0.1 + time * 0.03, WAVE_OCTAVES, WAVE_PERSISTENCE);
+      const noise2 = fractalNoise(x * 0.4 - time * 0.07, waveBaseY * 0.4 + time * 0.02, 3, 0.6);
+      const noise3 = fractalNoise(x * 1.5 + time * 0.12, waveBaseY * 1.5 - time * 0.08, 2, 0.7);
+
+      const chaoticWaves = (noise1 * 4.0) + (noise2 * 3.0) + (noise3 * 2.0);
+      const height = WAVE_VERTICAL_AMPLITUDE * chaoticWaves;
+
+      pos.setZ(i, height);
+    }
+    pos.needsUpdate = true;
+
+    renderer.render(scene, camera);
+  }
+
+  // === Utility functions ===
+  function randomBetween(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  function randomChoice(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  // Generate random hex color in THREE.js format
+  function getRandomColor() {
+    return Math.floor(Math.random() * 0xffffff);
+  }
+
+  // Randomise parameters *including* material color
+  function randomise() {
+    WAVE_VERTICAL_AMPLITUDE = randomBetween(0.2, 1.5);
+    CAMERA_LOOKAT_DISTANCE_AMPLITUDE = randomBetween(0, 100);
+    CAMERA_LOOKAT_VERTICAL_AMPLITUDE = randomBetween(0, 20);
+    CAMERA_LOOKAT_HORIZON_AMPLITUDE = randomBetween(0, 20);
+    CAMERA_VERTICAL_AMPLITUDE = randomBetween(0, 20);
+    CAMERA_BASE_HEIGHT = randomBetween(10, 50);
+    CAMERA_X_AMPLITUDE = randomBetween(0, 50);
+    SEA_SPEED = randomChoice([0, 20]);
+
+    if (material) {
+      const randomHex = getRandomColor();
+      material.color.setHex(randomHex);
+    }
+  }
+
+  // Fade logic
+  const fadeOverlay = document.getElementById('fadeOverlay');
+
+function fadeOutAndReset() {
+  // Start fading overlay in
+  fadeOverlay.style.opacity = '1';
+
+  // Make RAWT fade to white and stop blend mode
+  document.getElementById('rawtOverlay').classList.add('fade-active');
+
+  setTimeout(() => {
+    seaOffsetY = Math.random() * 1000;
+    init();
+
+    setTimeout(() => {
+      // Fade overlay out
+      fadeOverlay.style.opacity = '0';
+
+      // Restore RAWT blend mode and color
+      document.getElementById('rawtOverlay').classList.remove('fade-active');
+
+      setTimeout(fadeOutAndReset, 15000);
+    }, 100);
+  }, 5000);
+}
+
+  // Start everything
+  init();
+  animate();
+  setTimeout(fadeOutAndReset, 15000);
+
+</script>
+</body>
+</html>
