@@ -1,614 +1,613 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <title>RAWT</title>
-  <link href="https://fonts.cdnfonts.com/css/akira-expanded" rel="stylesheet" />
-  <style>
-    body {
-      margin: 0;
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-      font-family: 'Akira Expanded', sans-serif;
+    <meta charset="UTF-8" />
+    <title>RAWT</title>
+    <link href="https://fonts.cdnfonts.com/css/akira-expanded" rel="stylesheet" />
+    <style>
+        body {
+          margin: 0;
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+          font-family: 'Akira Expanded', sans-serif;
+        }
+        body::-webkit-scrollbar { display: none; }
+    
+        canvas {
+          position: fixed;
+          top: 0; left: 0;
+          z-index: 0;
+        }
+    
+        #fadeOverlay {
+          position: fixed; inset: 0;
+          background: black; opacity: 0;
+          transition: opacity 5s ease;
+          pointer-events: none; z-index: 1;
+        }
+    
+        #navBar, #bottomBar {
+          position: fixed; left: 0; width: 100%; height: 60px;
+          background: rgba(0,0,0,0); z-index: 1000;
+          pointer-events: none;
+     transition: height 0.5s ease, background 0.5s ease, opacity 0.5s ease;
+          display: flex; justify-content: flex-end; align-items: center; padding-right: 20px;
+          
+        }
+        #navBar { top: 0; }
+        #bottomBar { bottom: 0; }
+    
+        #navBar.active, #bottomBar.active {
+          background: white; pointer-events: auto; mix-blend-mode: exclusion;
+        }
+    
+        #bottomBar.hidden-ui { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    
+        #rawtOverlay {
+          position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+          font-size: 6rem; font-weight: bold; color: white;
+          mix-blend-mode: exclusion; user-select: none; pointer-events: none;
+          z-index: 1001;
+          transition: top 0.5s ease, left 0.5s ease, transform 0.5s ease, font-size 0.5s ease;
+        }
+        #rawtOverlay.stuck { top: 15px; left: 30px; transform: none; font-size: 2rem; }
+    
+        #scrollContainer { height: 200vh; z-index: 1; position: relative; }
+    
+        #rawtMenu {
+          position: fixed; top: 60px; left: 0;
+          font-family: 'Arial', sans-serif;
+          background: transparent; padding: 10px 30px;
+          z-index: 1002; width: 15%; height: 100%;
+          pointer-events: auto; transition: opacity 0.3s ease;
+        }
+    
+        #rawtMenu ul { list-style: none; margin: 0; padding: 0; }
+        #rawtMenu ul li { margin-bottom: 10px; }
+        #rawtMenu ul li:last-child { margin-bottom: 0; }
+    
+        #rawtMenu ul li a {
+          text-decoration: none; font-weight: bold; display: block;
+          transition: color 0.3s ease; mix-blend-mode: exclusion; color: white;
+        }
+        #rawtMenu ul li a:hover { color: inherit; cursor: pointer; }
+    
+        .hidden { opacity: 0; pointer-events: none; user-select: none; }
+        .visible { opacity: 1; pointer-events: auto; user-select: auto; }
+    
+        #hoverZone {
+          position: fixed; top: 0; right: 0; width: 30px; height: 60px;
+          z-index: 1100; background: transparent; pointer-events: auto;
+        }
+    
+        .hidden-ui { opacity: 0; pointer-events: auto; transition: opacity 0.3s ease; }
+    .volumeControl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+      font-weight: bold;
+      mix-blend-mode: exclusion;
     }
-    body::-webkit-scrollbar { display: none; }
-
-    canvas {
+    
+    .volumeControl label {
+      cursor: default;
+    }
+    
+    #volumeSlider {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 4px;
+      background: white;
+      border-radius: 2px;
+      outline: none;
+      transition: background 0.3s ease;
+      mix-blend-mode: exclusion;
+      cursor: pointer;
+    }
+    
+    #volumeSlider::-webkit-slider-thumb {
+      -webkit-appearance: none; /* Remove default styling */
+      appearance: none;
+      background: white !important;
+      border: none; /* Remove border if any */
+      box-shadow: none; /* Remove shadows */
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    
+    #volumeSlider::-moz-range-thumb {
+      background: white !important;
+      border: none;
+      box-shadow: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    
+    #fullOverlay {
       position: fixed;
-      top: 0; left: 0;
-      z-index: 0;
+      inset: 0; /* shorthand for top:0; right:0; bottom:0; left:0 */
+      background: rgba(255, 255, 255, 0.8); /* semi-transparent black */
+      z-index: 1; /* higher than other elements */
+      pointer-events: none; /* initially non-interactive */
+      opacity: 0;
+      transition: opacity 0.5s ease;
     }
-
-    #fadeOverlay {
-      position: fixed; inset: 0;
-      background: black; opacity: 0;
-      transition: opacity 5s ease;
-      pointer-events: none; z-index: 1;
+    #fullOverlay.active {
+      opacity: 1;
+      pointer-events: auto; /* make clickable/interactive when active */
     }
-
-    #navBar, #bottomBar {
-      position: fixed; left: 0; width: 100%; height: 60px;
-      background: rgba(0,0,0,0); z-index: 1000;
-      pointer-events: none;
- transition: height 0.5s ease, background 0.5s ease, opacity 0.5s ease;
-      display: flex; justify-content: flex-end; align-items: center; padding-right: 20px;
-      
-    }
-    #navBar { top: 0; }
-    #bottomBar { bottom: 0; }
-
-    #navBar.active, #bottomBar.active {
-      background: white; pointer-events: auto; mix-blend-mode: exclusion;
-    }
-
-    #bottomBar.hidden-ui { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-
-    #rawtOverlay {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      font-size: 6rem; font-weight: bold; color: white;
-      mix-blend-mode: exclusion; user-select: none; pointer-events: none;
-      z-index: 1001;
-      transition: top 0.5s ease, left 0.5s ease, transform 0.5s ease, font-size 0.5s ease;
-    }
-    #rawtOverlay.stuck { top: 15px; left: 30px; transform: none; font-size: 2rem; }
-
-    #scrollContainer { height: 200vh; z-index: 1; position: relative; }
-
-    #rawtMenu {
-      position: fixed; top: 60px; left: 0;
-      font-family: 'Arial', sans-serif;
-      background: transparent; padding: 10px 30px;
-      z-index: 1002; width: 15%; height: 100%;
-      pointer-events: auto; transition: opacity 0.3s ease;
-    }
-
-    #rawtMenu ul { list-style: none; margin: 0; padding: 0; }
-    #rawtMenu ul li { margin-bottom: 10px; }
-    #rawtMenu ul li:last-child { margin-bottom: 0; }
-
     #rawtMenu ul li a {
-      text-decoration: none; font-weight: bold; display: block;
-      transition: color 0.3s ease; mix-blend-mode: exclusion; color: white;
+      color: var(--menu-link-color, white);
+      transition: color 0.3s ease;
     }
-    #rawtMenu ul li a:hover { color: inherit; cursor: pointer; }
-
-    .hidden { opacity: 0; pointer-events: none; user-select: none; }
-    .visible { opacity: 1; pointer-events: auto; user-select: auto; }
-
-    #hoverZone {
-      position: fixed; top: 0; right: 0; width: 30px; height: 60px;
-      z-index: 1100; background: transparent; pointer-events: auto;
+    
+    #rawtMenu ul li a:hover {
+      color: var(--menu-link-hover-color, #f00);
     }
-
-    .hidden-ui { opacity: 0; pointer-events: auto; transition: opacity 0.3s ease; }
-.volumeControl {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: white;
-  font-weight: bold;
-  mix-blend-mode: exclusion;
-}
-
-.volumeControl label {
-  cursor: default;
-}
-
-#volumeSlider {
-  -webkit-appearance: none;
-  width: 100px;
-  height: 4px;
-  background: white;
-  border-radius: 2px;
-  outline: none;
-  transition: background 0.3s ease;
-  mix-blend-mode: exclusion;
-  cursor: pointer;
-}
-
-#volumeSlider::-webkit-slider-thumb {
-  -webkit-appearance: none; /* Remove default styling */
-  appearance: none;
-  background: white !important;
-  border: none; /* Remove border if any */
-  box-shadow: none; /* Remove shadows */
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-#volumeSlider::-moz-range-thumb {
-  background: white !important;
-  border: none;
-  box-shadow: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-#fullOverlay {
-  position: fixed;
-  inset: 0; /* shorthand for top:0; right:0; bottom:0; left:0 */
-  background: rgba(255, 255, 255, 0.8); /* semi-transparent black */
-  z-index: 1; /* higher than other elements */
-  pointer-events: none; /* initially non-interactive */
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-#fullOverlay.active {
-  opacity: 1;
-  pointer-events: auto; /* make clickable/interactive when active */
-}
-#rawtMenu ul li a {
-  color: var(--menu-link-color, white);
-  transition: color 0.3s ease;
-}
-
-#rawtMenu ul li a:hover {
-  color: var(--menu-link-hover-color, #f00);
-}
-
-#rawtMenu.flipped ul li a {
-  --menu-link-color: black;
-  --menu-link-hover-color: /* some inverted or other color */;
-  mix-blend-mode: normal;
-}
-
-  </style>
+    
+    #rawtMenu.flipped ul li a {
+      --menu-link-color: black;
+      --menu-link-hover-color: /* some inverted or other color */;
+      mix-blend-mode: normal;
+    }
+    </style>
 </head>
+
 <body>
-  <div id="fadeOverlay"></div>
-  <div id="navBar"></div>
-  <div id="rawtOverlay">RAWT</div>
-<div id="fullOverlay"></div>
-  <div id="rawtMenu" class="hidden">
-    <ul>
-      <li><a href="#">NaN</a></li>
-      <li><a href="#">404</a></li>
-      <li><a href="#">false</a></li>
-      <li><a href="#">true</a></li>
-      <li><a href="#">nil</a></li>
-      <li><a href="#">break</a></li>
-      <li><a href="#">exit</a></li>
-      <li><a href="#">fail</a></li>
-      <li><a href="#">catch</a></li>
-      <li><a href="#">throw</a></li>
-      <li><a href="#">debug</a></li>
-      <li><a href="#">stack</a></li>
-      <li><a href="#">trace</a></li>
-      <li><a href="#">memory</a></li>
-      <li><a href="#">overrun</a></li>
-      <li><a href="#">core</a></li>
-      <li><a href="#">zero</a></li>
-      <li><a href="#">reboot</a></li>
-      <li><a href="#">sys</a></li>
-      <li><a id="hideUIButton">hide-ui</a></li>
-      <li><a id="flipButton">flip</a></li>
-      <li><a id="generateButton">generate</a></li>
-<li>
-  <div class="volumeControl">
-    <input type="range" id="volumeSlider" min="0" max="100" value="0">
-  </div>
-</li>
-      <audio id="siteAudio" src="website.mp3" preload="auto"></audio>
+    <div id="fadeOverlay"></div>
+    <div id="navBar"></div>
+    <div id="rawtOverlay">RAWT</div>
+    <div id="fullOverlay"></div>
+    <div id="rawtMenu" class="hidden">
+        <ul>
+            <li><a href="#">NaN</a></li>
+            <li><a href="#">404</a></li>
+            <li><a href="#">false</a></li>
+            <li><a href="#">true</a></li>
+            <li><a href="#">nil</a></li>
+            <li><a href="#">break</a></li>
+            <li><a href="#">exit</a></li>
+            <li><a href="#">fail</a></li>
+            <li><a href="#">catch</a></li>
+            <li><a href="#">throw</a></li>
+            <li><a href="#">debug</a></li>
+            <li><a href="#">stack</a></li>
+            <li><a href="#">trace</a></li>
+            <li><a href="#">memory</a></li>
+            <li><a href="#">overrun</a></li>
+            <li><a href="#">core</a></li>
+            <li><a href="#">zero</a></li>
+            <li><a href="#">reboot</a></li>
+            <li><a href="#">sys</a></li>
+            <li><a id="hideUIButton">hide-ui</a></li>
+            <li><a id="flipButton">flip</a></li>
+            <li><a id="generateButton">generate</a></li>
+            <li>
+                <div class="volumeControl">
+                    <input type="range" id="volumeSlider" min="0" max="100" value="0">
+                </div>
+            </li>
+            <audio id="siteAudio" src="https://raw.githubusercontent.com/SwiftFaze/rawt-mesh/aed10b981aa12ca661a8197f6f1cdacae13387f3/website.mp3" preload="auto"></audio>
 
-    </ul>
-  </div>
+        </ul>
+    </div>
 
-  <div id="bottomBar"></div>
-  <div id="scrollContainer"></div>
+    <div id="bottomBar"></div>
+    <div id="scrollContainer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    window.scrollTo(0, 0);
-  });
-
-  const hideUIButton = document.getElementById('hideUIButton');
-  const navBar = document.getElementById('navBar');
-  const rawtMenu = document.getElementById('rawtMenu');
-  const rawt = document.getElementById('rawtOverlay');
-  const bottomBar = document.getElementById('bottomBar');
-const volumeSlider = document.getElementById('volumeSlider');
-const siteAudio = document.getElementById('siteAudio');
-const generateButton = document.getElementById('generateButton');
-const flipButton = document.getElementById('flipButton');
-// Start audio settings
-siteAudio.loop = true;
-siteAudio.volume = 0; // Match initial slider value
-
-// Play on first interaction
-volumeSlider.addEventListener('input', () => {
-  // Unmute and play on first use
-  if (siteAudio.paused) {
-    siteAudio.play().catch((e) => {
-      console.error('Playback failed:', e);
-    });
-  }
-
-  // Update volume (convert 0–100 to 0.0–1.0)
-  const volumeValue = volumeSlider.value / 100;
-  siteAudio.volume = volumeValue;
-});
-
-
-
-  // === 3D Sea Setup ===
-  let SEA_SPEED = 200; // units/sec driving a scrolling offset through the noise
-  let PLANE_SIZE = 100;
-  let PLANE_SEGMENTS = 200;
-
-  let CAMERA_X_AMPLITUDE = 0;
-  let CAMERA_POS_X = 0;
-  let CAMERA_BASE_HEIGHT = 10;
-  let CAMERA_VERTICAL_AMPLITUDE = 2;
-  let CAMERA_LOOKAT_HORIZON_AMPLITUDE = 2;
-  let CAMERA_LOOKAT_VERTICAL_AMPLITUDE = 2;
-  let CAMERA_POS_Z = 30;
-  let CAMERA_LOOKAT_DISTANCE_BASE = 20;
-  let CAMERA_LOOKAT_DISTANCE_AMPLITUDE = 10;
-  let WAVE_VERTICAL_AMPLITUDE = 1.0;
-  let CAMERA_SPEED_X = 0.2;
-  let CAMERA_SPEED_Y = 0.3;
-
-  let scene, camera, renderer, mesh, geometry;
-  let timeUniform, colorUniform, seaSpeedUniform;
-
-  function getRandomGrey() {
-    const shade = Math.floor(Math.random() * 205);
-    return (shade << 16) | (shade << 8) | shade;
-  }
-
-  function getRandomColor() {
-    return Math.floor(Math.random() * 0xffffff);
-  }
-
-  function randomBetween(min, max) {
-    return Math.random() * (max - min) + min;
-  }
-
-function invertColor(hex) {
-  // hex is a THREE.Color or number
-  if (hex instanceof THREE.Color) {
-    const r = 1 - hex.r;
-    const g = 1 - hex.g;
-    const b = 1 - hex.b;
-    return new THREE.Color(r, g, b);
-  }
-  // If hex is a number (int)
-  const r = 255 - ((hex >> 16) & 0xff);
-  const g = 255 - ((hex >> 8) & 0xff);
-  const b = 255 - (hex & 0xff);
-  return (r << 16) | (g << 8) | b;
-}
-
-
-  function init() {
-    if (renderer) renderer.domElement.remove();
-
-    scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(CAMERA_POS_X, CAMERA_BASE_HEIGHT, CAMERA_POS_Z);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(getRandomGrey(), 1);
-    document.body.appendChild(renderer.domElement);
-
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(0, 100, 100).normalize();
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404040));
-
-    randomise();
-    createSeaMesh();
-    window.addEventListener('resize', onWindowResize, false);
-  }
-
-  function createSeaMesh() {
-    if (mesh) {
-      scene.remove(mesh);
-      geometry.dispose();
-      mesh.traverse(obj => { if (obj.material) obj.material.dispose(); });
-    }
-
-    geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, Math.max(2, Math.floor(PLANE_SEGMENTS)), Math.max(2, Math.floor(PLANE_SEGMENTS)));
-    geometry.rotateX(-Math.PI / 2);
-
-    timeUniform = { value: 0 };
-    colorUniform = { value: new THREE.Color(getRandomColor()) };
-    seaSpeedUniform = { value: SEA_SPEED }; // <-- drives scroll speed in shader
-
-    const vertexShader = `
-      uniform float time;
-      uniform float amplitude;
-      uniform float seaSpeed; // units per second
-      varying vec3 vPos;
-
-      // simple hash & value noise
-      float rand(vec2 co) {
-        return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-      }
-      float noise(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        float a = rand(i);
-        float b = rand(i + vec2(1.0, 0.0));
-        float c = rand(i + vec2(0.0, 1.0));
-        float d = rand(i + vec2(1.0, 1.0));
-        vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(a, b, u.x) +
-               (c - a)* u.y * (1.0 - u.x) +
-               (d - b) * u.x * u.y;
-      }
-      float fractalNoise(vec2 pos) {
-        float total = 0.0;
-        float freq = 1.0;
-        float amp = 1.0;
-        float maxAmp = 0.0;
-        for (int i = 0; i < 4; i++) {
-          total += noise(pos * freq) * amp;
-          maxAmp += amp;
-          amp *= 0.5;
-          freq *= 2.0;
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            window.scrollTo(0, 0);
+          });
+        
+          const hideUIButton = document.getElementById('hideUIButton');
+          const navBar = document.getElementById('navBar');
+          const rawtMenu = document.getElementById('rawtMenu');
+          const rawt = document.getElementById('rawtOverlay');
+          const bottomBar = document.getElementById('bottomBar');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const siteAudio = document.getElementById('siteAudio');
+        const generateButton = document.getElementById('generateButton');
+        const flipButton = document.getElementById('flipButton');
+        // Start audio settings
+        siteAudio.loop = true;
+        siteAudio.volume = 0; // Match initial slider value
+        
+        // Play on first interaction
+        volumeSlider.addEventListener('input', () => {
+          // Unmute and play on first use
+          if (siteAudio.paused) {
+            siteAudio.play().catch((e) => {
+              console.error('Playback failed:', e);
+            });
+          }
+        
+          // Update volume (convert 0–100 to 0.0–1.0)
+          const volumeValue = volumeSlider.value / 100;
+          siteAudio.volume = volumeValue;
+        });
+        
+        
+        
+          // === 3D Sea Setup ===
+          let SEA_SPEED = 200; // units/sec driving a scrolling offset through the noise
+          let PLANE_SIZE = 100;
+          let PLANE_SEGMENTS = 200;
+        
+          let CAMERA_X_AMPLITUDE = 0;
+          let CAMERA_POS_X = 0;
+          let CAMERA_BASE_HEIGHT = 10;
+          let CAMERA_VERTICAL_AMPLITUDE = 2;
+          let CAMERA_LOOKAT_HORIZON_AMPLITUDE = 2;
+          let CAMERA_LOOKAT_VERTICAL_AMPLITUDE = 2;
+          let CAMERA_POS_Z = 30;
+          let CAMERA_LOOKAT_DISTANCE_BASE = 20;
+          let CAMERA_LOOKAT_DISTANCE_AMPLITUDE = 10;
+          let WAVE_VERTICAL_AMPLITUDE = 1.0;
+          let CAMERA_SPEED_X = 0.2;
+          let CAMERA_SPEED_Y = 0.3;
+        
+          let scene, camera, renderer, mesh, geometry;
+          let timeUniform, colorUniform, seaSpeedUniform;
+        
+          function getRandomGrey() {
+            const shade = Math.floor(Math.random() * 205);
+            return (shade << 16) | (shade << 8) | shade;
+          }
+        
+          function getRandomColor() {
+            return Math.floor(Math.random() * 0xffffff);
+          }
+        
+          function randomBetween(min, max) {
+            return Math.random() * (max - min) + min;
+          }
+        
+        function invertColor(hex) {
+          // hex is a THREE.Color or number
+          if (hex instanceof THREE.Color) {
+            const r = 1 - hex.r;
+            const g = 1 - hex.g;
+            const b = 1 - hex.b;
+            return new THREE.Color(r, g, b);
+          }
+          // If hex is a number (int)
+          const r = 255 - ((hex >> 16) & 0xff);
+          const g = 255 - ((hex >> 8) & 0xff);
+          const b = 255 - (hex & 0xff);
+          return (r << 16) | (g << 8) | b;
         }
-        return total / maxAmp;
-      }
-
-      void main() {
-        vec3 pos = position;
-
-        // --- SEA_SPEED adds a directional scroll through the noise field (along +Z) ---
-        float seaOffset = time * seaSpeed * 0.02; // scale factor to taste
-        vec2 p = pos.xz + vec2(0.0, seaOffset);
-
-        float displacement =
-            fractalNoise(p * 0.1 + time * 0.05) * 3.0 +
-            fractalNoise(p * 0.4 - time * 0.03) * 2.0 +
-            fractalNoise(p * 1.2 + time * 0.01);
-
-        pos.y += displacement * amplitude;
-        vPos = pos;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-      }
-    `;
-
-    // === Fill mesh (background color, occlusion only) ===
-    const fillMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        time: timeUniform,
-        color: { value: renderer.getClearColor(new THREE.Color()) },
-        amplitude: { value: WAVE_VERTICAL_AMPLITUDE },
-        seaSpeed: seaSpeedUniform
-      },
-      vertexShader,
-      fragmentShader: `
-        uniform vec3 color;
-        void main() {
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `,
-      wireframe: false,
-      depthWrite: true,
-      depthTest: true
-    });
-
-    // === Wireframe edges (random color) ===
-    const wireMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        time: timeUniform,
-        color: colorUniform,
-        amplitude: { value: WAVE_VERTICAL_AMPLITUDE },
-        seaSpeed: seaSpeedUniform
-      },
-      vertexShader,
-      fragmentShader: `
-        uniform vec3 color;
-        void main() {
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `,
-      wireframe: true,
-      depthWrite: false,
-      depthTest: true
-    });
-
-    const filledMesh = new THREE.Mesh(geometry, fillMaterial);
-    const wireMesh = new THREE.Mesh(geometry, wireMaterial);
-
-    mesh = new THREE.Group();
-    mesh.add(filledMesh);
-    mesh.add(wireMesh);
-
-    scene.add(mesh);
-  }
-
-  function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  }
-
-  const clock = new THREE.Clock();
-
-  function animate() {
-    requestAnimationFrame(animate);
-
-    const elapsed = clock.getElapsedTime();
-    timeUniform.value = elapsed;
-
-    // camera motion
-    camera.position.x = CAMERA_POS_X + Math.sin(elapsed * CAMERA_SPEED_X) * CAMERA_X_AMPLITUDE;
-    camera.position.y = CAMERA_BASE_HEIGHT + Math.sin(elapsed * CAMERA_SPEED_Y) * CAMERA_VERTICAL_AMPLITUDE;
-    camera.position.z = CAMERA_POS_Z;
-
-    const lookAtDistance = CAMERA_LOOKAT_DISTANCE_BASE + Math.sin(elapsed * 0.02) * CAMERA_LOOKAT_DISTANCE_AMPLITUDE;
-    const horizonOffset = Math.sin(elapsed * 0.2) * CAMERA_LOOKAT_HORIZON_AMPLITUDE;
-    const verticalOffset = Math.sin(elapsed * 0.1) * CAMERA_LOOKAT_VERTICAL_AMPLITUDE;
-
-    camera.lookAt(new THREE.Vector3(
-      CAMERA_POS_X + verticalOffset,
-      horizonOffset,
-      CAMERA_POS_Z - lookAtDistance
-    ));
-
-    renderer.render(scene, camera);
-  }
-
-  function randomise() {
-    WAVE_VERTICAL_AMPLITUDE = randomBetween(0.2, 4);
-    CAMERA_LOOKAT_DISTANCE_AMPLITUDE = randomBetween(0, 100);
-    CAMERA_LOOKAT_VERTICAL_AMPLITUDE = randomBetween(0, 20);
-    CAMERA_LOOKAT_HORIZON_AMPLITUDE = randomBetween(0, 20);
-    CAMERA_VERTICAL_AMPLITUDE = randomBetween(0, 20);
-    CAMERA_BASE_HEIGHT = randomBetween(10, 50);
-    CAMERA_X_AMPLITUDE = randomBetween(0, 50);
-    PLANE_SEGMENTS = randomBetween(200, 500);
-    SEA_SPEED = Math.random() > 0.5 ? 0 : 2000; // 0 = still; 200 = fast scroll
-  }
-
-  function fadeOutAndReset() {
-    const fadeOverlay = document.getElementById('fadeOverlay');
-    fadeOverlay.style.opacity = '1';
-    setTimeout(() => {
-      init();
-      setTimeout(() => {
-        fadeOverlay.style.opacity = '0';
-        setTimeout(fadeOutAndReset, 15000);
-      }, 100);
-    }, 5000);
-  }
-
-  init();
-  animate();
-  setTimeout(fadeOutAndReset, 15000);
-
-  // === UI Logic ===
-  function updateHideUIButtonVisibility() {
-    if (navBar.classList.contains('active') && !uiHidden) {
-      hideUIButton.classList.add('visible-ui');
-    } else {
-      hideUIButton.classList.remove('visible-ui');
-    }
-  }
-
-  let uiHidden = false;
-  hideUIButton.addEventListener('click', () => {
-    uiHidden = true;
-    navBar.classList.add('hidden-ui');
-    rawtMenu.classList.add('hidden-ui');
-    bottomBar.classList.add('hidden-ui');
-    updateHideUIButtonVisibility();
-  });
-
-  generateButton.addEventListener('click', () => {
-init();
-
-
-  });
-const overlay = document.getElementById('fullOverlay');
-
-flipButton.addEventListener('click', () => {
-  const currentClearColor = renderer.getClearColor(new THREE.Color());
-  const invertedClearColor = invertColor(currentClearColor);
-  renderer.setClearColor(invertedClearColor, 1);
-
-  colorUniform.value = invertColor(colorUniform.value);
-  rawtMenu.classList.toggle('flipped');
-
-  const hoverColor = '#' + colorUniform.value.getHexString();
-
-  menuLinks.forEach(link => {
-    link.addEventListener('mouseenter', () => {
-      link.style.color = hoverColor;
-    });
-    link.addEventListener('mouseleave', () => {
-      link.style.color = rawtMenu.classList.contains('flipped') ? 'black' : 'white';
-    });
-  });
-});
-
-
-
-  function showUI() {
-    uiHidden = false;
-    navBar.classList.remove('hidden-ui');
-    rawtMenu.classList.remove('hidden-ui');
-    bottomBar.classList.remove('hidden-ui');
-    updateHideUIButtonVisibility();
-  }
-
-  window.addEventListener('scroll', () => {
-    const scrollY = window.scrollY;
-    const triggerPoint = window.innerHeight / 2;
-    const isStuck = scrollY > triggerPoint;
-
-    rawt.classList.toggle('stuck', isStuck);
-    navBar.classList.toggle('active', isStuck);
-    bottomBar.classList.toggle('active', isStuck);
-
-    if (isStuck) {
-      rawtMenu.classList.add('visible');
-      rawtMenu.classList.remove('hidden');
-    } else {
-      rawtMenu.classList.add('hidden');
-      rawtMenu.classList.remove('visible');
-    }
-
-    updateHideUIButtonVisibility();
-  });
-
-  rawtMenu.addEventListener('mouseenter', () => {
-    if (uiHidden) showUI();
-  });
-  navBar.addEventListener('mouseenter', () => {
-    if (uiHidden) showUI();
-  });
-
-  updateHideUIButtonVisibility();
-
-  // Hover color sync
-  const menuLinks = document.querySelectorAll('#rawtMenu ul li a');
-  menuLinks.forEach(link => {
-    const originalColor = window.getComputedStyle(link).color;
-    link.addEventListener('mouseenter', () => {
-      const colorHex = '#' + colorUniform.value.getHexString();
-      link.style.color = colorHex;
-    });
-    link.addEventListener('mouseleave', () => {
-      link.style.color = originalColor;
-    });
-  });
-
-  hideUIButton.addEventListener('mouseenter', () => {
-    const colorHex = '#' + colorUniform.value.getHexString();
-    hideUIButton.style.color = colorHex;
-  });
-
-  hideUIButton.addEventListener('mouseleave', () => {
-    hideUIButton.style.color = 'white';
-  });
-
-volumeSlider.addEventListener('mouseenter', () => {
-  const colorHex = '#' + colorUniform.value.getHexString();
-  // Change the slider track color
-  volumeSlider.style.background = colorHex;
-
-  // Change the slider thumb color using CSS variables
-  volumeSlider.style.setProperty('--thumb-color', colorHex);
-});
-
-volumeSlider.addEventListener('mouseleave', () => {
-  volumeSlider.style.background = 'white';
-  volumeSlider.style.setProperty('--thumb-color', 'white');
-});
-
-
-
-  </script>
+        
+        
+          function init() {
+            if (renderer) renderer.domElement.remove();
+        
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(CAMERA_POS_X, CAMERA_BASE_HEIGHT, CAMERA_POS_Z);
+        
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(getRandomGrey(), 1);
+            document.body.appendChild(renderer.domElement);
+        
+            const light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(0, 100, 100).normalize();
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x404040));
+        
+            randomise();
+            createSeaMesh();
+            window.addEventListener('resize', onWindowResize, false);
+          }
+        
+          function createSeaMesh() {
+            if (mesh) {
+              scene.remove(mesh);
+              geometry.dispose();
+              mesh.traverse(obj => { if (obj.material) obj.material.dispose(); });
+            }
+        
+            geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, Math.max(2, Math.floor(PLANE_SEGMENTS)), Math.max(2, Math.floor(PLANE_SEGMENTS)));
+            geometry.rotateX(-Math.PI / 2);
+        
+            timeUniform = { value: 0 };
+            colorUniform = { value: new THREE.Color(getRandomColor()) };
+            seaSpeedUniform = { value: SEA_SPEED }; // <-- drives scroll speed in shader
+        
+            const vertexShader = `
+              uniform float time;
+              uniform float amplitude;
+              uniform float seaSpeed; // units per second
+              varying vec3 vPos;
+        
+              // simple hash & value noise
+              float rand(vec2 co) {
+                return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+              }
+              float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                float a = rand(i);
+                float b = rand(i + vec2(1.0, 0.0));
+                float c = rand(i + vec2(0.0, 1.0));
+                float d = rand(i + vec2(1.0, 1.0));
+                vec2 u = f * f * (3.0 - 2.0 * f);
+                return mix(a, b, u.x) +
+                       (c - a)* u.y * (1.0 - u.x) +
+                       (d - b) * u.x * u.y;
+              }
+              float fractalNoise(vec2 pos) {
+                float total = 0.0;
+                float freq = 1.0;
+                float amp = 1.0;
+                float maxAmp = 0.0;
+                for (int i = 0; i < 4; i++) {
+                  total += noise(pos * freq) * amp;
+                  maxAmp += amp;
+                  amp *= 0.5;
+                  freq *= 2.0;
+                }
+                return total / maxAmp;
+              }
+        
+              void main() {
+                vec3 pos = position;
+        
+                // --- SEA_SPEED adds a directional scroll through the noise field (along +Z) ---
+                float seaOffset = time * seaSpeed * 0.02; // scale factor to taste
+                vec2 p = pos.xz + vec2(0.0, seaOffset);
+        
+                float displacement =
+                    fractalNoise(p * 0.1 + time * 0.05) * 3.0 +
+                    fractalNoise(p * 0.4 - time * 0.03) * 2.0 +
+                    fractalNoise(p * 1.2 + time * 0.01);
+        
+                pos.y += displacement * amplitude;
+                vPos = pos;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+              }
+            `;
+        
+            // === Fill mesh (background color, occlusion only) ===
+            const fillMaterial = new THREE.ShaderMaterial({
+              uniforms: {
+                time: timeUniform,
+                color: { value: renderer.getClearColor(new THREE.Color()) },
+                amplitude: { value: WAVE_VERTICAL_AMPLITUDE },
+                seaSpeed: seaSpeedUniform
+              },
+              vertexShader,
+              fragmentShader: `
+                uniform vec3 color;
+                void main() {
+                  gl_FragColor = vec4(color, 1.0);
+                }
+              `,
+              wireframe: false,
+              depthWrite: true,
+              depthTest: true
+            });
+        
+            // === Wireframe edges (random color) ===
+            const wireMaterial = new THREE.ShaderMaterial({
+              uniforms: {
+                time: timeUniform,
+                color: colorUniform,
+                amplitude: { value: WAVE_VERTICAL_AMPLITUDE },
+                seaSpeed: seaSpeedUniform
+              },
+              vertexShader,
+              fragmentShader: `
+                uniform vec3 color;
+                void main() {
+                  gl_FragColor = vec4(color, 1.0);
+                }
+              `,
+              wireframe: true,
+              depthWrite: false,
+              depthTest: true
+            });
+        
+            const filledMesh = new THREE.Mesh(geometry, fillMaterial);
+            const wireMesh = new THREE.Mesh(geometry, wireMaterial);
+        
+            mesh = new THREE.Group();
+            mesh.add(filledMesh);
+            mesh.add(wireMesh);
+        
+            scene.add(mesh);
+          }
+        
+          function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+          }
+        
+          const clock = new THREE.Clock();
+        
+          function animate() {
+            requestAnimationFrame(animate);
+        
+            const elapsed = clock.getElapsedTime();
+            timeUniform.value = elapsed;
+        
+            // camera motion
+            camera.position.x = CAMERA_POS_X + Math.sin(elapsed * CAMERA_SPEED_X) * CAMERA_X_AMPLITUDE;
+            camera.position.y = CAMERA_BASE_HEIGHT + Math.sin(elapsed * CAMERA_SPEED_Y) * CAMERA_VERTICAL_AMPLITUDE;
+            camera.position.z = CAMERA_POS_Z;
+        
+            const lookAtDistance = CAMERA_LOOKAT_DISTANCE_BASE + Math.sin(elapsed * 0.02) * CAMERA_LOOKAT_DISTANCE_AMPLITUDE;
+            const horizonOffset = Math.sin(elapsed * 0.2) * CAMERA_LOOKAT_HORIZON_AMPLITUDE;
+            const verticalOffset = Math.sin(elapsed * 0.1) * CAMERA_LOOKAT_VERTICAL_AMPLITUDE;
+        
+            camera.lookAt(new THREE.Vector3(
+              CAMERA_POS_X + verticalOffset,
+              horizonOffset,
+              CAMERA_POS_Z - lookAtDistance
+            ));
+        
+            renderer.render(scene, camera);
+          }
+        
+          function randomise() {
+            WAVE_VERTICAL_AMPLITUDE = randomBetween(0.2, 4);
+            CAMERA_LOOKAT_DISTANCE_AMPLITUDE = randomBetween(0, 100);
+            CAMERA_LOOKAT_VERTICAL_AMPLITUDE = randomBetween(0, 20);
+            CAMERA_LOOKAT_HORIZON_AMPLITUDE = randomBetween(0, 20);
+            CAMERA_VERTICAL_AMPLITUDE = randomBetween(0, 20);
+            CAMERA_BASE_HEIGHT = randomBetween(10, 50);
+            CAMERA_X_AMPLITUDE = randomBetween(0, 50);
+            PLANE_SEGMENTS = randomBetween(200, 500);
+            SEA_SPEED = Math.random() > 0.5 ? 0 : 2000; // 0 = still; 200 = fast scroll
+          }
+        
+          function fadeOutAndReset() {
+            const fadeOverlay = document.getElementById('fadeOverlay');
+            fadeOverlay.style.opacity = '1';
+            setTimeout(() => {
+              init();
+              setTimeout(() => {
+                fadeOverlay.style.opacity = '0';
+                setTimeout(fadeOutAndReset, 15000);
+              }, 100);
+            }, 5000);
+          }
+        
+          init();
+          animate();
+          setTimeout(fadeOutAndReset, 15000);
+        
+          // === UI Logic ===
+          function updateHideUIButtonVisibility() {
+            if (navBar.classList.contains('active') && !uiHidden) {
+              hideUIButton.classList.add('visible-ui');
+            } else {
+              hideUIButton.classList.remove('visible-ui');
+            }
+          }
+        
+          let uiHidden = false;
+          hideUIButton.addEventListener('click', () => {
+            uiHidden = true;
+            navBar.classList.add('hidden-ui');
+            rawtMenu.classList.add('hidden-ui');
+            bottomBar.classList.add('hidden-ui');
+            updateHideUIButtonVisibility();
+          });
+        
+          generateButton.addEventListener('click', () => {
+        init();
+        
+        
+          });
+        const overlay = document.getElementById('fullOverlay');
+        
+        flipButton.addEventListener('click', () => {
+          const currentClearColor = renderer.getClearColor(new THREE.Color());
+          const invertedClearColor = invertColor(currentClearColor);
+          renderer.setClearColor(invertedClearColor, 1);
+        
+          colorUniform.value = invertColor(colorUniform.value);
+          rawtMenu.classList.toggle('flipped');
+        
+          const hoverColor = '#' + colorUniform.value.getHexString();
+        
+          menuLinks.forEach(link => {
+            link.addEventListener('mouseenter', () => {
+              link.style.color = hoverColor;
+            });
+            link.addEventListener('mouseleave', () => {
+              link.style.color = rawtMenu.classList.contains('flipped') ? 'black' : 'white';
+            });
+          });
+        });
+        
+        
+        
+          function showUI() {
+            uiHidden = false;
+            navBar.classList.remove('hidden-ui');
+            rawtMenu.classList.remove('hidden-ui');
+            bottomBar.classList.remove('hidden-ui');
+            updateHideUIButtonVisibility();
+          }
+        
+          window.addEventListener('scroll', () => {
+            const scrollY = window.scrollY;
+            const triggerPoint = window.innerHeight / 2;
+            const isStuck = scrollY > triggerPoint;
+        
+            rawt.classList.toggle('stuck', isStuck);
+            navBar.classList.toggle('active', isStuck);
+            bottomBar.classList.toggle('active', isStuck);
+        
+            if (isStuck) {
+              rawtMenu.classList.add('visible');
+              rawtMenu.classList.remove('hidden');
+            } else {
+              rawtMenu.classList.add('hidden');
+              rawtMenu.classList.remove('visible');
+            }
+        
+            updateHideUIButtonVisibility();
+          });
+        
+          rawtMenu.addEventListener('mouseenter', () => {
+            if (uiHidden) showUI();
+          });
+          navBar.addEventListener('mouseenter', () => {
+            if (uiHidden) showUI();
+          });
+        
+          updateHideUIButtonVisibility();
+        
+          // Hover color sync
+          const menuLinks = document.querySelectorAll('#rawtMenu ul li a');
+          menuLinks.forEach(link => {
+            const originalColor = window.getComputedStyle(link).color;
+            link.addEventListener('mouseenter', () => {
+              const colorHex = '#' + colorUniform.value.getHexString();
+              link.style.color = colorHex;
+            });
+            link.addEventListener('mouseleave', () => {
+              link.style.color = originalColor;
+            });
+          });
+        
+          hideUIButton.addEventListener('mouseenter', () => {
+            const colorHex = '#' + colorUniform.value.getHexString();
+            hideUIButton.style.color = colorHex;
+          });
+        
+          hideUIButton.addEventListener('mouseleave', () => {
+            hideUIButton.style.color = 'white';
+          });
+        
+        volumeSlider.addEventListener('mouseenter', () => {
+          const colorHex = '#' + colorUniform.value.getHexString();
+          // Change the slider track color
+          volumeSlider.style.background = colorHex;
+        
+          // Change the slider thumb color using CSS variables
+          volumeSlider.style.setProperty('--thumb-color', colorHex);
+        });
+        
+        volumeSlider.addEventListener('mouseleave', () => {
+          volumeSlider.style.background = 'white';
+          volumeSlider.style.setProperty('--thumb-color', 'white');
+        });
+    </script>
 </body>
+
 </html>
