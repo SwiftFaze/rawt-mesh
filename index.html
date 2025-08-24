@@ -218,6 +218,8 @@
         const siteAudio = document.getElementById('siteAudio');
         const generateButton = document.getElementById('generateButton');
         const flipButton = document.getElementById('flipButton');
+          const menuLinks = document.querySelectorAll('#rawtMenu ul li a');
+        
         // Start audio settings
         siteAudio.loop = true;
         siteAudio.volume = 0; // Match initial slider value
@@ -257,8 +259,10 @@
           let CAMERA_SPEED_Y = 0.3;
         
           let scene, camera, renderer, mesh, geometry;
-          let timeUniform, colorUniform, seaSpeedUniform;
-        
+          let timeUniform, seaSpeedUniform;
+        let colorUniform = { value: new THREE.Color(0xffffff) };
+
+
           function getRandomGrey() {
             const shade = Math.floor(Math.random() * 205);
             return (shade << 16) | (shade << 8) | shade;
@@ -461,6 +465,9 @@
           }
         
           function randomise() {
+             if (Math.random() < 0.5) {
+    flipColors();
+  }
             WAVE_VERTICAL_AMPLITUDE = randomBetween(0.2, 4);
             CAMERA_LOOKAT_DISTANCE_AMPLITUDE = randomBetween(0, 100);
             CAMERA_LOOKAT_VERTICAL_AMPLITUDE = randomBetween(0, 20);
@@ -470,6 +477,7 @@
             CAMERA_X_AMPLITUDE = randomBetween(0, 50);
             PLANE_SEGMENTS = randomBetween(200, 500);
             SEA_SPEED = Math.random() > 0.5 ? 0 : 2000; // 0 = still; 200 = fast scroll
+            
           }
         
           function fadeOutAndReset() {
@@ -514,6 +522,11 @@
         const overlay = document.getElementById('fullOverlay');
         
         flipButton.addEventListener('click', () => {
+          flipColors();
+        });
+        
+
+function flipColors(){
           const currentClearColor = renderer.getClearColor(new THREE.Color());
           const invertedClearColor = invertColor(currentClearColor);
           renderer.setClearColor(invertedClearColor, 1);
@@ -531,8 +544,8 @@
               link.style.color = rawtMenu.classList.contains('flipped') ? 'black' : 'white';
             });
           });
-        });
-        
+}
+
         
         
           function showUI() {
@@ -573,7 +586,6 @@
           updateHideUIButtonVisibility();
         
           // Hover color sync
-          const menuLinks = document.querySelectorAll('#rawtMenu ul li a');
           menuLinks.forEach(link => {
             const originalColor = window.getComputedStyle(link).color;
             link.addEventListener('mouseenter', () => {
