@@ -128,7 +128,7 @@
   const bottomBar = document.getElementById('bottomBar');
 
   // === 3D Sea Setup ===
-  let SEA_SPEED = 20;
+  let SEA_SPEED = 200; // units/sec driving a scrolling offset through the noise
   let PLANE_SIZE = 100;
   let PLANE_SEGMENTS = 200;
 
@@ -146,7 +146,7 @@
   let CAMERA_SPEED_Y = 0.3;
 
   let scene, camera, renderer, mesh, geometry;
-  let timeUniform, colorUniform;
+  let timeUniform, colorUniform, seaSpeedUniform;
 
   function getRandomGrey() {
     const shade = Math.floor(Math.random() * 205);
@@ -190,21 +190,23 @@
       mesh.traverse(obj => { if (obj.material) obj.material.dispose(); });
     }
 
-    geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, PLANE_SEGMENTS, PLANE_SEGMENTS);
+    geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, Math.max(2, Math.floor(PLANE_SEGMENTS)), Math.max(2, Math.floor(PLANE_SEGMENTS)));
     geometry.rotateX(-Math.PI / 2);
 
     timeUniform = { value: 0 };
     colorUniform = { value: new THREE.Color(getRandomColor()) };
+    seaSpeedUniform = { value: SEA_SPEED }; // <-- drives scroll speed in shader
 
     const vertexShader = `
       uniform float time;
       uniform float amplitude;
+      uniform float seaSpeed; // units per second
       varying vec3 vPos;
 
+      // simple hash & value noise
       float rand(vec2 co) {
         return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
       }
-
       float noise(vec2 p) {
         vec2 i = floor(p);
         vec2 f = fract(p);
@@ -217,7 +219,6 @@
                (c - a)* u.y * (1.0 - u.x) +
                (d - b) * u.x * u.y;
       }
-
       float fractalNoise(vec2 pos) {
         float total = 0.0;
         float freq = 1.0;
@@ -234,9 +235,16 @@
 
       void main() {
         vec3 pos = position;
-        float displacement = fractalNoise(pos.xz * 0.1 + time * 0.05) * 3.0 +
-                             fractalNoise(pos.xz * 0.4 - time * 0.03) * 2.0 +
-                             fractalNoise(pos.xz * 1.2 + time * 0.01);
+
+        // --- SEA_SPEED adds a directional scroll through the noise field (along +Z) ---
+        float seaOffset = time * seaSpeed * 0.02; // scale factor to taste
+        vec2 p = pos.xz + vec2(0.0, seaOffset);
+
+        float displacement =
+            fractalNoise(p * 0.1 + time * 0.05) * 3.0 +
+            fractalNoise(p * 0.4 - time * 0.03) * 2.0 +
+            fractalNoise(p * 1.2 + time * 0.01);
+
         pos.y += displacement * amplitude;
         vPos = pos;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
@@ -247,8 +255,9 @@
     const fillMaterial = new THREE.ShaderMaterial({
       uniforms: {
         time: timeUniform,
-        color: { value: renderer.getClearColor(new THREE.Color()) }, // background color
-        amplitude: { value: WAVE_VERTICAL_AMPLITUDE }
+        color: { value: renderer.getClearColor(new THREE.Color()) },
+        amplitude: { value: WAVE_VERTICAL_AMPLITUDE },
+        seaSpeed: seaSpeedUniform
       },
       vertexShader,
       fragmentShader: `
@@ -267,7 +276,8 @@
       uniforms: {
         time: timeUniform,
         color: colorUniform,
-        amplitude: { value: WAVE_VERTICAL_AMPLITUDE }
+        amplitude: { value: WAVE_VERTICAL_AMPLITUDE },
+        seaSpeed: seaSpeedUniform
       },
       vertexShader,
       fragmentShader: `
@@ -305,6 +315,7 @@
     const elapsed = clock.getElapsedTime();
     timeUniform.value = elapsed;
 
+    // camera motion
     camera.position.x = CAMERA_POS_X + Math.sin(elapsed * CAMERA_SPEED_X) * CAMERA_X_AMPLITUDE;
     camera.position.y = CAMERA_BASE_HEIGHT + Math.sin(elapsed * CAMERA_SPEED_Y) * CAMERA_VERTICAL_AMPLITUDE;
     camera.position.z = CAMERA_POS_Z;
@@ -330,8 +341,8 @@
     CAMERA_VERTICAL_AMPLITUDE = randomBetween(0, 20);
     CAMERA_BASE_HEIGHT = randomBetween(10, 50);
     CAMERA_X_AMPLITUDE = randomBetween(0, 50);
-    PLANE_SEGMENTS = randomBetween(200, 1000);
-    SEA_SPEED = Math.random() > 0.5 ? 0 : 20;
+    PLANE_SEGMENTS = randomBetween(200, 500);
+    SEA_SPEED = Math.random() > 0.5 ? 0 : 2000; // 0 = still; 200 = fast scroll
   }
 
   function fadeOutAndReset() {
