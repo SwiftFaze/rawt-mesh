@@ -30,8 +30,9 @@
       position: fixed; left: 0; width: 100%; height: 60px;
       background: rgba(0,0,0,0); z-index: 1000;
       pointer-events: none;
-      transition: background 0.5s ease, opacity 0.5s ease;
+ transition: height 0.5s ease, background 0.5s ease, opacity 0.5s ease;
       display: flex; justify-content: flex-end; align-items: center; padding-right: 20px;
+      
     }
     #navBar { top: 0; }
     #bottomBar { bottom: 0; }
@@ -80,13 +81,90 @@
     }
 
     .hidden-ui { opacity: 0; pointer-events: auto; transition: opacity 0.3s ease; }
+.volumeControl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  font-weight: bold;
+  mix-blend-mode: exclusion;
+}
+
+.volumeControl label {
+  cursor: default;
+}
+
+#volumeSlider {
+  -webkit-appearance: none;
+  width: 100px;
+  height: 4px;
+  background: white;
+  border-radius: 2px;
+  outline: none;
+  transition: background 0.3s ease;
+  mix-blend-mode: exclusion;
+  cursor: pointer;
+}
+
+#volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Remove default styling */
+  appearance: none;
+  background: white !important;
+  border: none; /* Remove border if any */
+  box-shadow: none; /* Remove shadows */
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+#volumeSlider::-moz-range-thumb {
+  background: white !important;
+  border: none;
+  box-shadow: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+#fullOverlay {
+  position: fixed;
+  inset: 0; /* shorthand for top:0; right:0; bottom:0; left:0 */
+  background: rgba(255, 255, 255, 0.8); /* semi-transparent black */
+  z-index: 1; /* higher than other elements */
+  pointer-events: none; /* initially non-interactive */
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+#fullOverlay.active {
+  opacity: 1;
+  pointer-events: auto; /* make clickable/interactive when active */
+}
+#rawtMenu ul li a {
+  color: var(--menu-link-color, white);
+  transition: color 0.3s ease;
+}
+
+#rawtMenu ul li a:hover {
+  color: var(--menu-link-hover-color, #f00);
+}
+
+#rawtMenu.flipped ul li a {
+  --menu-link-color: black;
+  --menu-link-hover-color: /* some inverted or other color */;
+  mix-blend-mode: normal;
+}
+
   </style>
 </head>
 <body>
   <div id="fadeOverlay"></div>
   <div id="navBar"></div>
   <div id="rawtOverlay">RAWT</div>
-
+<div id="fullOverlay"></div>
   <div id="rawtMenu" class="hidden">
     <ul>
       <li><a href="#">NaN</a></li>
@@ -109,6 +187,15 @@
       <li><a href="#">reboot</a></li>
       <li><a href="#">sys</a></li>
       <li><a id="hideUIButton">hide-ui</a></li>
+      <li><a id="flipButton">flip</a></li>
+      <li><a id="generateButton">generate</a></li>
+<li>
+  <div class="volumeControl">
+    <input type="range" id="volumeSlider" min="0" max="100" value="0">
+  </div>
+</li>
+      <audio id="siteAudio" src="website.wav" preload="auto"></audio>
+
     </ul>
   </div>
 
@@ -126,6 +213,29 @@
   const rawtMenu = document.getElementById('rawtMenu');
   const rawt = document.getElementById('rawtOverlay');
   const bottomBar = document.getElementById('bottomBar');
+const volumeSlider = document.getElementById('volumeSlider');
+const siteAudio = document.getElementById('siteAudio');
+const generateButton = document.getElementById('generateButton');
+const flipButton = document.getElementById('flipButton');
+// Start audio settings
+siteAudio.loop = true;
+siteAudio.volume = 0; // Match initial slider value
+
+// Play on first interaction
+volumeSlider.addEventListener('input', () => {
+  // Unmute and play on first use
+  if (siteAudio.paused) {
+    siteAudio.play().catch((e) => {
+      console.error('Playback failed:', e);
+    });
+  }
+
+  // Update volume (convert 0–100 to 0.0–1.0)
+  const volumeValue = volumeSlider.value / 100;
+  siteAudio.volume = volumeValue;
+});
+
+
 
   // === 3D Sea Setup ===
   let SEA_SPEED = 200; // units/sec driving a scrolling offset through the noise
@@ -160,6 +270,22 @@
   function randomBetween(min, max) {
     return Math.random() * (max - min) + min;
   }
+
+function invertColor(hex) {
+  // hex is a THREE.Color or number
+  if (hex instanceof THREE.Color) {
+    const r = 1 - hex.r;
+    const g = 1 - hex.g;
+    const b = 1 - hex.b;
+    return new THREE.Color(r, g, b);
+  }
+  // If hex is a number (int)
+  const r = 255 - ((hex >> 16) & 0xff);
+  const g = 255 - ((hex >> 8) & 0xff);
+  const b = 255 - (hex & 0xff);
+  return (r << 16) | (g << 8) | b;
+}
+
 
   function init() {
     if (renderer) renderer.domElement.remove();
@@ -379,6 +505,35 @@
     updateHideUIButtonVisibility();
   });
 
+  generateButton.addEventListener('click', () => {
+init();
+
+
+  });
+const overlay = document.getElementById('fullOverlay');
+
+flipButton.addEventListener('click', () => {
+  const currentClearColor = renderer.getClearColor(new THREE.Color());
+  const invertedClearColor = invertColor(currentClearColor);
+  renderer.setClearColor(invertedClearColor, 1);
+
+  colorUniform.value = invertColor(colorUniform.value);
+  rawtMenu.classList.toggle('flipped');
+
+  const hoverColor = '#' + colorUniform.value.getHexString();
+
+  menuLinks.forEach(link => {
+    link.addEventListener('mouseenter', () => {
+      link.style.color = hoverColor;
+    });
+    link.addEventListener('mouseleave', () => {
+      link.style.color = rawtMenu.classList.contains('flipped') ? 'black' : 'white';
+    });
+  });
+});
+
+
+
   function showUI() {
     uiHidden = false;
     navBar.classList.remove('hidden-ui');
@@ -437,6 +592,23 @@
   hideUIButton.addEventListener('mouseleave', () => {
     hideUIButton.style.color = 'white';
   });
+
+volumeSlider.addEventListener('mouseenter', () => {
+  const colorHex = '#' + colorUniform.value.getHexString();
+  // Change the slider track color
+  volumeSlider.style.background = colorHex;
+
+  // Change the slider thumb color using CSS variables
+  volumeSlider.style.setProperty('--thumb-color', colorHex);
+});
+
+volumeSlider.addEventListener('mouseleave', () => {
+  volumeSlider.style.background = 'white';
+  volumeSlider.style.setProperty('--thumb-color', 'white');
+});
+
+
+
   </script>
 </body>
 </html>
