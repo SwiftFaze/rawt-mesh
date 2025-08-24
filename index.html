@@ -116,8 +116,7 @@
   <div id="scrollContainer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script>
+  <script>
   document.addEventListener("DOMContentLoaded", () => {
     window.scrollTo(0, 0);
   });
@@ -146,8 +145,8 @@
   let CAMERA_SPEED_X = 0.2;
   let CAMERA_SPEED_Y = 0.3;
 
-  let scene, camera, renderer, mesh, geometry, material;
-  let timeUniform;
+  let scene, camera, renderer, mesh, geometry;
+  let timeUniform, colorUniform;
 
   function getRandomGrey() {
     const shade = Math.floor(Math.random() * 205);
@@ -188,77 +187,107 @@
     if (mesh) {
       scene.remove(mesh);
       geometry.dispose();
-      mesh.material.dispose();
+      mesh.traverse(obj => { if (obj.material) obj.material.dispose(); });
     }
 
     geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE, PLANE_SEGMENTS, PLANE_SEGMENTS);
     geometry.rotateX(-Math.PI / 2);
 
     timeUniform = { value: 0 };
-    const colorUniform = { value: new THREE.Color(getRandomColor()) };
+    colorUniform = { value: new THREE.Color(getRandomColor()) };
 
-    material = new THREE.ShaderMaterial({
+    const vertexShader = `
+      uniform float time;
+      uniform float amplitude;
+      varying vec3 vPos;
+
+      float rand(vec2 co) {
+        return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        float a = rand(i);
+        float b = rand(i + vec2(1.0, 0.0));
+        float c = rand(i + vec2(0.0, 1.0));
+        float d = rand(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) +
+               (c - a)* u.y * (1.0 - u.x) +
+               (d - b) * u.x * u.y;
+      }
+
+      float fractalNoise(vec2 pos) {
+        float total = 0.0;
+        float freq = 1.0;
+        float amp = 1.0;
+        float maxAmp = 0.0;
+        for (int i = 0; i < 4; i++) {
+          total += noise(pos * freq) * amp;
+          maxAmp += amp;
+          amp *= 0.5;
+          freq *= 2.0;
+        }
+        return total / maxAmp;
+      }
+
+      void main() {
+        vec3 pos = position;
+        float displacement = fractalNoise(pos.xz * 0.1 + time * 0.05) * 3.0 +
+                             fractalNoise(pos.xz * 0.4 - time * 0.03) * 2.0 +
+                             fractalNoise(pos.xz * 1.2 + time * 0.01);
+        pos.y += displacement * amplitude;
+        vPos = pos;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `;
+
+    // === Fill mesh (background color, occlusion only) ===
+    const fillMaterial = new THREE.ShaderMaterial({
       uniforms: {
         time: timeUniform,
-        color: colorUniform,
+        color: { value: renderer.getClearColor(new THREE.Color()) }, // background color
         amplitude: { value: WAVE_VERTICAL_AMPLITUDE }
       },
-      vertexShader: `
-        uniform float time;
-        uniform float amplitude;
-        varying vec3 vPos;
-
-        float rand(vec2 co) {
-          return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-        }
-
-        float noise(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          float a = rand(i);
-          float b = rand(i + vec2(1.0, 0.0));
-          float c = rand(i + vec2(0.0, 1.0));
-          float d = rand(i + vec2(1.0, 1.0));
-          vec2 u = f * f * (3.0 - 2.0 * f);
-          return mix(a, b, u.x) +
-                 (c - a)* u.y * (1.0 - u.x) +
-                 (d - b) * u.x * u.y;
-        }
-
-        float fractalNoise(vec2 pos) {
-          float total = 0.0;
-          float freq = 1.0;
-          float amp = 1.0;
-          float maxAmp = 0.0;
-          for (int i = 0; i < 4; i++) {
-            total += noise(pos * freq) * amp;
-            maxAmp += amp;
-            amp *= 0.5;
-            freq *= 2.0;
-          }
-          return total / maxAmp;
-        }
-
-        void main() {
-          vec3 pos = position;
-          float displacement = fractalNoise(pos.xz * 0.1 + time * 0.05) * 3.0 +
-                               fractalNoise(pos.xz * 0.4 - time * 0.03) * 2.0 +
-                               fractalNoise(pos.xz * 1.2 + time * 0.01);
-          pos.y += displacement * amplitude;
-          vPos = pos;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-        }
-      `,
+      vertexShader,
       fragmentShader: `
         uniform vec3 color;
         void main() {
           gl_FragColor = vec4(color, 1.0);
         }
       `,
-      wireframe: true
+      wireframe: false,
+      depthWrite: true,
+      depthTest: true
     });
 
-    mesh = new THREE.Mesh(geometry, material);
+    // === Wireframe edges (random color) ===
+    const wireMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: timeUniform,
+        color: colorUniform,
+        amplitude: { value: WAVE_VERTICAL_AMPLITUDE }
+      },
+      vertexShader,
+      fragmentShader: `
+        uniform vec3 color;
+        void main() {
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
+      wireframe: true,
+      depthWrite: false,
+      depthTest: true
+    });
+
+    const filledMesh = new THREE.Mesh(geometry, fillMaterial);
+    const wireMesh = new THREE.Mesh(geometry, wireMaterial);
+
+    mesh = new THREE.Group();
+    mesh.add(filledMesh);
+    mesh.add(wireMesh);
+
     scene.add(mesh);
   }
 
@@ -321,7 +350,7 @@
   animate();
   setTimeout(fadeOutAndReset, 15000);
 
-  // === UI Logic (unchanged) ===
+  // === UI Logic ===
   function updateHideUIButtonVisibility() {
     if (navBar.classList.contains('active') && !uiHidden) {
       hideUIButton.classList.add('visible-ui');
@@ -381,7 +410,7 @@
   menuLinks.forEach(link => {
     const originalColor = window.getComputedStyle(link).color;
     link.addEventListener('mouseenter', () => {
-      const colorHex = '#' + material.uniforms.color.value.getHexString();
+      const colorHex = '#' + colorUniform.value.getHexString();
       link.style.color = colorHex;
     });
     link.addEventListener('mouseleave', () => {
@@ -390,14 +419,13 @@
   });
 
   hideUIButton.addEventListener('mouseenter', () => {
-    const colorHex = '#' + material.uniforms.color.value.getHexString();
+    const colorHex = '#' + colorUniform.value.getHexString();
     hideUIButton.style.color = colorHex;
   });
 
   hideUIButton.addEventListener('mouseleave', () => {
     hideUIButton.style.color = 'white';
   });
-</script>
-
+  </script>
 </body>
 </html>
